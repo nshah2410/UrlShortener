@@ -2,7 +2,6 @@ package com.neel.urlshortener.controller;
 
 import com.neel.urlshortener.dto.UrlRequest;
 import com.neel.urlshortener.model.UrlMapping;
-import com.neel.urlshortener.repository.UrlRepository;
 import com.neel.urlshortener.service.UrlService;
 
 import java.util.Map;
@@ -17,18 +16,13 @@ public class UrlController {
 	@Autowired
 	private UrlService urlService;
 
-	@Autowired
-	private UrlRepository urlRepository;
-	
 	@PostMapping("/api/urls")
 	public ResponseEntity<?> createShortUrl(@RequestBody UrlRequest request) {
 	    if (request.getUrl() == null || request.getUrl().isBlank()) {
 	        return ResponseEntity.badRequest().body("URL cannot be empty");
 	    }
 
-	    String shortCode = urlService.shortenUrl(request.getUrl());
-
-	    UrlMapping mapping = urlRepository.findByShortCode(shortCode).get();
+	    UrlMapping mapping = urlService.shortenUrl(request.getUrl());
 
 	    return ResponseEntity.ok(Map.of(
 	        "originalUrl", mapping.getOriginalUrl(),
