@@ -1,6 +1,13 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useApp } from "../store/appContext";
-import { avatarBg, fullUrl, getAnalytics, initial } from "../lib/helpers";
+import { getAnalytics as fetchAnalytics } from "../api/urlApi";
+import {
+  adaptAnalytics,
+  avatarBg,
+  fullUrl,
+  getAnalytics,
+  initial,
+} from "../lib/helpers";
 
 function MetricCard({ label, value, big }) {
   return (
@@ -51,7 +58,30 @@ export default function AnalyticsScreen() {
   const { links, selectedLinkId } = useApp();
   const selLink = links.find((l) => l.id === selectedLinkId) || links[0];
   const full = fullUrl(selLink);
-  const an = useMemo(() => getAnalytics(selLink), [selLink]);
+
+  // Seeded demo analytics used as a fallback when a link has no real clicks yet
+  // or the backend is unreachable.
+  const seeded = useMemo(() => getAnalytics(selLink), [selLink]);
+  const [real, setReal] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    setReal(null);
+    // Only numeric backend ids have analytics; seed ids (e.g. "l1") don't.
+    if (!selLink || !/^\d+$/.test(selLink.id)) return;
+    fetchAnalytics(selLink.id)
+      .then((data) => {
+        if (active && data && data.totalClicks > 0) setReal(adaptAnalytics(data));
+      })
+      .catch(() => {
+        /* fall back to seeded */
+      });
+    return () => {
+      active = false;
+    };
+  }, [selLink]);
+
+  const an = real || seeded;
 
   return (
     <div className="mx-auto max-w-[1140px] animate-fadeUp px-[30px] pb-[60px] pt-[28px]">

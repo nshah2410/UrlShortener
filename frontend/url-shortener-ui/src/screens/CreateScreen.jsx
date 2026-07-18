@@ -87,8 +87,17 @@ function SuccessCard() {
 }
 
 export default function CreateScreen() {
-  const { longUrl, setLongUrl, customSlug, setCustomSlug, shorten, links } =
-    useApp();
+  const {
+    longUrl,
+    setLongUrl,
+    customSlug,
+    setCustomSlug,
+    shorten,
+    shortening,
+    shortenError,
+    clearShortenError,
+    links,
+  } = useApp();
   const recent = links.slice(0, 3);
 
   const onSubmit = (e) => {
@@ -143,7 +152,10 @@ export default function CreateScreen() {
               </div>
               <input
                 value={customSlug}
-                onChange={(e) => setCustomSlug(e.target.value)}
+                onChange={(e) => {
+                  setCustomSlug(e.target.value);
+                  if (shortenError) clearShortenError();
+                }}
                 placeholder="custom-name"
                 className="min-w-0 flex-1 border-0 bg-transparent px-[13px] font-mono text-[14px] font-medium text-ink outline-none"
               />
@@ -151,11 +163,18 @@ export default function CreateScreen() {
           </div>
           <button
             type="submit"
-            className="h-[48px] rounded-[12px] bg-accent px-6 font-display text-[14.5px] font-semibold text-white shadow-btn-lg transition hover:brightness-[1.07]"
+            disabled={shortening}
+            className="h-[48px] rounded-[12px] bg-accent px-6 font-display text-[14.5px] font-semibold text-white shadow-btn-lg transition hover:brightness-[1.07] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Shorten
+            {shortening ? "Shortening…" : "Shorten"}
           </button>
         </div>
+
+        {shortenError && (
+          <div className="mt-3 rounded-[10px] border border-[#f2c4c4] bg-[#fdf3f3] px-[13px] py-[9px] text-[13px] font-medium text-danger">
+            {shortenError}
+          </div>
+        )}
       </form>
 
       <SuccessCard />

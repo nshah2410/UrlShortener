@@ -1,5 +1,63 @@
 // Pure helpers ported from the design prototype's logic class.
 
+// Convert a backend UrlResponse into the frontend link shape.
+export function mapApiLink(api) {
+  return {
+    id: String(api.id),
+    title: api.title || titleFromHost(api.originalUrl),
+    slug: api.shortCode,
+    dest: api.originalUrl,
+    clicks: api.clickCount ?? 0,
+    days: daysSince(api.createdAt),
+    domain: "sn.ip",
+  };
+}
+
+function titleFromHost(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "New link";
+  }
+}
+
+function daysSince(iso) {
+  if (!iso) return 0;
+  const created = new Date(iso).getTime();
+  if (Number.isNaN(created)) return 0;
+  return Math.max(0, Math.floor((Date.now() - created) / 86400000));
+}
+
+// Adapt a backend AnalyticsResponse into the shape the Analytics screen renders
+// (precomputed bar heights/widths, formatted numbers).
+export function adaptAnalytics(api) {
+  const maxDay = Math.max(1, ...api.days.map((d) => d.value));
+  const days = api.days.map((d) => ({
+    v: d.value,
+    label: d.label,
+    h: Math.max(5, Math.round((d.value / maxDay) * 100)) + "%",
+  }));
+  const rows = (list) => {
+    const max = Math.max(1, ...list.map((r) => r.value));
+    return list.map((r) => ({
+      name: r.name,
+      pct: r.percent + "%",
+      w: Math.round((r.value / max) * 100) + "%",
+    }));
+  };
+  return {
+    totalFmt: fmt(api.totalClicks),
+    uniqueFmt: fmt(api.uniqueVisitors),
+    topLoc: api.topLocation || "—",
+    topRef: api.topReferrer || "—",
+    days,
+    referrers: rows(api.referrers || []),
+    devices: rows(api.devices || []),
+    locations: rows(api.locations || []),
+    browsers: rows(api.browsers || []),
+  };
+}
+
 // FNV-1a hash → stable per-id colors / seeded RNG.
 export function hash(s) {
   let h = 2166136261;

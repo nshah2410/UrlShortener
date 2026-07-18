@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import { shortenUrl } from "../api/urlApi";
-import { fullUrl, genSlug, normalizeUrl, sanitizeSlug } from "../lib/helpers";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { deleteUrl, listUrls, shortenUrl } from "../api/urlApi";
+import { fullUrl, mapApiLink } from "../lib/helpers";
 import { AppContext } from "./appContext";
 
 // Seed data ported from the design prototype.
@@ -77,11 +77,35 @@ export function AppProvider({ children }) {
   const [qrColor, setQrColor] = useState("#11131a");
   const [utm, setUtm] = useState(true);
   const [cloak, setCloak] = useState(false);
+  const [linksLoading, setLinksLoading] = useState(true);
+  const [shortenError, setShortenError] = useState(null);
+  const [shortening, setShortening] = useState(false);
 
   const copyTimer = useRef(null);
   const copyCreatedTimer = useRef(null);
 
   const go = useCallback((s) => setScreen(s), []);
+
+  // Load real links from the backend on mount; fall back to seed data offline.
+  useEffect(() => {
+    let active = true;
+    listUrls()
+      .then((data) => {
+        if (!active) return;
+        const mapped = data.map(mapApiLink);
+        if (mapped.length) {
+          setLinks(mapped);
+          setSelectedLinkId(mapped[0].id);
+        }
+      })
+      .catch(() => {
+        // Backend unreachable — keep the seed data already in state.
+      })
+      .finally(() => active && setLinksLoading(false));
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const copyLink = useCallback((id, text) => {
     try {
@@ -110,43 +134,42 @@ export function AppProvider({ children }) {
     copyCreatedTimer.current = setTimeout(() => setCopiedCreated(false), 1300);
   }, []);
 
-  // Shorten: hit the real backend, then prepend the resulting link locally.
+  // Shorten via the backend; prepend the created link and show the success card.
   const shorten = useCallback(async () => {
     const raw = (longUrl || "").trim();
     if (!raw) return;
-    const slug = sanitizeSlug(customSlug.trim() || genSlug()) || genSlug();
-    const { dest, title } = normalizeUrl(raw);
-
-    // Optimistically build the link; enrich with backend data if available.
-    let link = {
-      id: "n" + Date.now(),
-      title,
-      slug,
-      dest,
-      clicks: 0,
-      days: 0,
-      domain,
-    };
+    setShortenError(null);
+    setShortening(true);
     try {
-      const data = await shortenUrl(dest);
-      if (data && typeof data === "object") {
-        link = {
-          ...link,
-          dest: data.originalUrl || dest,
-          slug: data.shortCode || slug,
-          clicks: typeof data.clickCount === "number" ? data.clickCount : 0,
-        };
-      }
-    } catch {
-      // Backend offline — keep the optimistic local link so the UI still works.
+      const data = await shortenUrl(raw, customSlug.trim());
+      const link = mapApiLink(data);
+      setLinks((prev) => [link, ...prev.filter((l) => l.id !== link.id)]);
+      setCreated(link);
+      setSelectedLinkId(link.id);
+      setLongUrl("");
+      setCustomSlug("");
+    } catch (err) {
+      // Surface 409 (slug taken) and other failures to the Create form.
+      setShortenError(err.message || "Could not shorten that URL.");
+    } finally {
+      setShortening(false);
     }
+  }, [longUrl, customSlug]);
 
-    setLinks((prev) => [link, ...prev]);
-    setCreated(link);
-    setSelectedLinkId(link.id);
-    setLongUrl("");
-    setCustomSlug("");
-  }, [longUrl, customSlug, domain]);
+  const deleteLink = useCallback(async (id) => {
+    // Optimistically remove; restore on failure.
+    let removed;
+    setLinks((prev) => {
+      removed = prev.find((l) => l.id === id);
+      return prev.filter((l) => l.id !== id);
+    });
+    setCreated((c) => (c && c.id === id ? null : c));
+    try {
+      await deleteUrl(id);
+    } catch {
+      if (removed) setLinks((prev) => [removed, ...prev]);
+    }
+  }, []);
 
   const goToLinkAnalytics = useCallback((id) => {
     setSelectedLinkId(id);
@@ -176,6 +199,9 @@ export function AppProvider({ children }) {
       qrColor,
       utm,
       cloak,
+      linksLoading,
+      shortenError,
+      shortening,
       // setters
       setLongUrl,
       setCustomSlug,
@@ -188,8 +214,10 @@ export function AppProvider({ children }) {
       copyLink,
       copyCreated,
       shorten,
+      deleteLink,
       goToLinkAnalytics,
       goToLinkQr,
+      clearShortenError: () => setShortenError(null),
       toggleUtm: () => setUtm((v) => !v),
       toggleCloak: () => setCloak((v) => !v),
       login: () => {
@@ -214,10 +242,14 @@ export function AppProvider({ children }) {
       qrColor,
       utm,
       cloak,
+      linksLoading,
+      shortenError,
+      shortening,
       go,
       copyLink,
       copyCreated,
       shorten,
+      deleteLink,
       goToLinkAnalytics,
       goToLinkQr,
     ],

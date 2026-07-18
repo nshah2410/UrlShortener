@@ -7,6 +7,7 @@ import {
   FilterIcon,
   QrIcon,
   SearchIcon,
+  TrashIcon,
 } from "../components/icons";
 import { avatarBg, fmt, fullUrl, initial, relativeTime } from "../lib/helpers";
 
@@ -21,16 +22,17 @@ function StatCard({ label, children }) {
   );
 }
 
-function IconButton({ title, onClick, active, children }) {
+function IconButton({ title, onClick, active, danger, children }) {
+  const variant = active
+    ? "border-[#bfe9d4] bg-success-bg text-success"
+    : danger
+      ? "border-[#e6e8ee] bg-white text-[#6b707b] hover:border-danger hover:text-danger hover:bg-[#fdf3f3]"
+      : "border-[#e6e8ee] bg-white text-[#6b707b] hover:border-accent hover:text-accent";
   return (
     <button
       onClick={onClick}
       title={title}
-      className={`flex h-[32px] w-[32px] items-center justify-center rounded-[8px] border transition hover:bg-[#f1f3f9] ${
-        active
-          ? "border-[#bfe9d4] bg-success-bg text-success"
-          : "border-[#e6e8ee] bg-white text-[#6b707b] hover:border-accent hover:text-accent"
-      }`}
+      className={`flex h-[32px] w-[32px] items-center justify-center rounded-[8px] border transition ${variant}`}
     >
       {children}
     </button>
@@ -38,11 +40,19 @@ function IconButton({ title, onClick, active, children }) {
 }
 
 function LinkRow({ link }) {
-  const { copiedId, copyLink, goToLinkAnalytics, goToLinkQr } = useApp();
+  const { copiedId, copyLink, goToLinkAnalytics, goToLinkQr, deleteLink } =
+    useApp();
   const full = fullUrl(link);
   const copied = copiedId === link.id;
+
+  const onDelete = () => {
+    if (window.confirm(`Delete ${full}? This can't be undone.`)) {
+      deleteLink(link.id);
+    }
+  };
+
   return (
-    <div className="grid grid-cols-[1fr_110px_130px_96px] items-center gap-3 border-b border-line-faint px-[18px] py-[13px] transition hover:bg-surface-alt2">
+    <div className="grid grid-cols-[1fr_110px_130px_134px] items-center gap-3 border-b border-line-faint px-[18px] py-[13px] transition hover:bg-surface-alt2">
       <div className="flex min-w-0 items-center gap-3">
         <div
           className="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-[10px] font-display text-[15px] font-bold text-white"
@@ -97,6 +107,9 @@ function LinkRow({ link }) {
         >
           <BarChartIcon size={15} />
         </IconButton>
+        <IconButton title="Delete" onClick={onDelete} danger>
+          <TrashIcon size={15} />
+        </IconButton>
       </div>
     </div>
   );
@@ -109,7 +122,7 @@ export default function LinksScreen() {
     const totalClicks = links.reduce((a, b) => a + b.clicks, 0);
     const best = links.reduce(
       (a, b) => (b.clicks > a.clicks ? b : a),
-      links[0]
+      links[0],
     );
     return {
       links: links.length,
@@ -126,7 +139,7 @@ export default function LinksScreen() {
         !q ||
         l.title.toLowerCase().includes(q) ||
         l.slug.includes(q) ||
-        l.dest.toLowerCase().includes(q)
+        l.dest.toLowerCase().includes(q),
     );
   }, [links, query]);
 

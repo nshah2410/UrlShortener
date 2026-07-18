@@ -240,6 +240,24 @@ export function SignOutIcon({ size = 15, strokeWidth = 2, ...rest }) {
   );
 }
 
+export function TrashIcon({ size = 15, strokeWidth = 1.8, ...rest }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      strokeWidth={strokeWidth}
+      {...base}
+      {...rest}
+    >
+      <path d="M3 6h18" />
+      <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
+  );
+}
+
 export function GoogleIcon({ size = 17, ...rest }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" {...rest}>
